@@ -16,6 +16,7 @@ package com.google.firebase.firestore.local;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.firebase.firestore.testutil.TestUtil.doc;
+import static com.google.firebase.firestore.testutil.TestUtil.field;
 import static com.google.firebase.firestore.testutil.TestUtil.key;
 import static com.google.firebase.firestore.testutil.TestUtil.map;
 import static com.google.firebase.firestore.testutil.TestUtil.query;
@@ -24,8 +25,10 @@ import android.content.QuickViewConstants;
 
 import com.google.firebase.firestore.core.Query;
 import com.google.firebase.firestore.model.DocumentKey;
+import com.google.firebase.firestore.model.FieldIndex;
 import com.google.firebase.firestore.model.MutableDocument;
 
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
@@ -36,6 +39,19 @@ import java.util.Collections;
 @RunWith(RobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
 public class SQLiteIndexManagerTest extends IndexManagerTestCase {
+  /** Current state of indexing support. Used for restoring after test run. */
+  private static final boolean supportsIndexing = Persistence.INDEXING_SUPPORT_ENABLED;
+
+  @BeforeClass
+  public static void beforeClass() {
+    Persistence.INDEXING_SUPPORT_ENABLED = true;
+  }
+
+  @BeforeClass
+  public static void afterClass() {
+    Persistence.INDEXING_SUPPORT_ENABLED = supportsIndexing;
+  }
+
   @Override
   Persistence getPersistence() {
     return PersistenceTestHelpers.createSQLitePersistence();
@@ -45,6 +61,7 @@ public class SQLiteIndexManagerTest extends IndexManagerTestCase {
   public void addsDocumentToIndex() {
     Query query = query("coll");
     MutableDocument doc = doc("coll/doc", 1, map("foo", 1));
+    indexManager.addFieldIndex(new FieldIndex("coll").withAddedField(field("foo"), FieldIndex.Segment.Kind.ORDERED));
     indexManager.addIndexEntries(doc);
     Iterable<DocumentKey> results = indexManager.getDocumentsMatchingTarget(query.toTarget());
     assertThat(results).containsExactlyElementsIn(Collections.singletonList(key("coll/doc")));

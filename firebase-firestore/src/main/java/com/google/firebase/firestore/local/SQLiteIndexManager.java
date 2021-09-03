@@ -91,7 +91,7 @@ final class SQLiteIndexManager implements IndexManager {
     db.execute(
         "INSERT OR IGNORE INTO index_configuration ("
             + "index_id, "
-            + "collection_id, "
+            + "collection_group, "
             + "index_proto, "
             + "active) VALUES(?, ?, ?, ?)",
         currentMax + 1,
@@ -103,7 +103,7 @@ final class SQLiteIndexManager implements IndexManager {
   @Override
   public void addIndexEntries(Document document) {
     String collectionGroup = document.getKey().getPath().popLast().canonicalString();
-    db.query("SELECT index_id, index_proto FROM index_configuration WHERE collection_group = ?")
+    db.query("SELECT index_id, index_proto FROM index_configuration WHERE collection_group = ? AND active = 1")
         .binding(collectionGroup)
         .forEach(
             row -> {
@@ -123,10 +123,10 @@ final class SQLiteIndexManager implements IndexManager {
                       "INSERT OR IGNORE INTO index_entries ("
                           + "index_id, "
                           + "index_value, "
-                          + "document_id ) VALUES(?, ?, ?)",
+                          + "document_name) VALUES(?, ?, ?)",
                       indexId,
                       encoded,
-                      document.getKey().getPath().getLastSegment());
+                      document.getKey().getPath().canonicalString());
                 }
               } catch (InvalidProtocolBufferException e) {
                 throw fail("Invalid index: " + e);
@@ -169,7 +169,7 @@ final class SQLiteIndexManager implements IndexManager {
         for (byte[] upperBoundValue : upperBoundValues) {
           db.query(
                   String.format(
-                      "SELECT document_id from field_index WHERE index_id = ? AND index_value %s ? AND index_value %s ?",
+                      "SELECT document_name from field_index WHERE index_id = ? AND index_value %s ? AND index_value %s ?",
                       lowerBound.isBefore() ? ">=" : ">", upperBound.isBefore() ? "<=" : "<"))
               .binding(fieldIndex, lowerBoundValue, upperBoundValue)
               .forEach(
@@ -181,7 +181,7 @@ final class SQLiteIndexManager implements IndexManager {
       for (byte[] lowerBoundValue : lowerBoundValues) {
         db.query(
                 String.format(
-                    "SELECT document_id from field_index WHERE index_id = ? AND index_value %s  ?",
+                    "SELECT document_name from field_index WHERE index_id = ? AND index_value %s  ?",
                     lowerBound.isBefore() ? ">=" : ">"))
             .binding(fieldIndex, lowerBoundValue)
             .forEach(
